@@ -15,8 +15,6 @@ const seedUsers = async () => {
         if (!samplePassword || samplePassword.length < 8) {
             throw new Error('Vui lòng đặt SEED_USER_PASSWORD tối thiểu 8 ký tự trước khi tạo tài khoản mẫu.');
         }
-        await User.deleteMany({});
-
         const SALT_ROUNDS = 10;
         const passwordHash = await bcrypt.hash(samplePassword, SALT_ROUNDS);
 
@@ -26,9 +24,13 @@ const seedUsers = async () => {
             { username: 'kythuat_bt', password: passwordHash, fullName: 'Kỹ thuật Bến Thủy', role: 'USER', department: 'Bến Thủy - Phòng Kỹ thuật' },
             { username: 'tgd', password: passwordHash, fullName: 'Tổng Giám Đốc', role: 'DIRECTOR', department: 'Văn phòng Cảng - Phòng Tổng Giám đốc' }
         ];
-        
-        await User.insertMany(users);
-        console.log('✅ Đã tạo 4 tài khoản mẫu thành công (mật khẩu đã hash bcrypt)!');
+
+        await Promise.all(users.map((user) => User.updateOne(
+            { username: user.username },
+            { $set: user },
+            { upsert: true }
+        )));
+        console.log('✅ Đã tạo/cập nhật 4 tài khoản mẫu thành công (mật khẩu đã hash bcrypt)!');
         process.exit(0);
     } catch(err) {
         console.error('❌ Lỗi:', err);
