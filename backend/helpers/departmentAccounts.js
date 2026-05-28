@@ -59,6 +59,7 @@ export function buildDepartmentAccounts(passwordHash) {
         fullName: `Tài khoản ${fullDepartment}`,
         role: getDepartmentAccountRole(group, department),
         department: fullDepartment,
+        isActive: true,
       };
     }),
   );
@@ -66,6 +67,7 @@ export function buildDepartmentAccounts(passwordHash) {
   const personalAccounts = PERSONAL_APPROVER_ACCOUNTS.map((account) => ({
     ...account,
     password: passwordHash,
+    isActive: true,
   }));
 
   return [...departmentAccounts, ...personalAccounts];

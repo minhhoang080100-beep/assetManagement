@@ -119,6 +119,14 @@ async function login(username) {
   return data.token;
 }
 
+async function loginWithPassword(username, loginPassword, expectedStatus = 200) {
+  return expectStatus(
+    await request('POST', '/api/auth/login', { body: { username, password: loginPassword } }),
+    expectedStatus,
+    `login ${username}`,
+  );
+}
+
 async function seedUsers() {
   const passwordHash = await bcrypt.hash(password, 10);
   await User.insertMany([
@@ -157,6 +165,58 @@ async function run() {
   const managerToken = await login(`${runId}_manager`);
   const userToken = await login(`${runId}_user`);
   const otherToken = await login(`${runId}_other`);
+
+  expectStatus(await request('GET', '/api/users', { token: userToken }), 403, 'USER cannot list accounts');
+  const users = expectStatus(await request('GET', '/api/users', { token: adminToken }), 200, 'ADMIN lists accounts');
+  assert.ok(users.every((item) => !('password' in item)), 'account list does not expose password hashes');
+  const managedUser = expectStatus(
+    await request('POST', '/api/users', {
+      token: adminToken,
+      body: {
+        username: `${runId}_managed`,
+        password: 'Temp123456',
+        fullName: 'E2E Managed Account',
+        role: 'USER',
+        department: deptB,
+      },
+    }),
+    201,
+    'ADMIN creates managed account',
+  );
+  assert.equal(managedUser.username, `${runId}_managed`, 'managed account has username');
+  assert.ok(!('password' in managedUser), 'created account does not expose password hash');
+  expectStatus(
+    await request('PUT', `/api/users/${managedUser._id}`, {
+      token: adminToken,
+      body: { fullName: 'E2E Managed Account Updated', role: 'USER', department: deptB, isActive: true },
+    }),
+    200,
+    'ADMIN updates managed account',
+  );
+  expectStatus(
+    await request('PUT', `/api/users/${managedUser._id}/password`, {
+      token: adminToken,
+      body: { password: 'Reset123456' },
+    }),
+    200,
+    'ADMIN resets managed account password',
+  );
+  const managedLogin = await loginWithPassword(`${runId}_managed`, 'Reset123456');
+  assert.ok(managedLogin.token, 'managed account can login after password reset');
+  expectStatus(
+    await request('PUT', `/api/users/${managedUser._id}`, {
+      token: adminToken,
+      body: { fullName: 'E2E Managed Account Updated', role: 'USER', department: deptB, isActive: false },
+    }),
+    200,
+    'ADMIN locks managed account',
+  );
+  await loginWithPassword(`${runId}_managed`, 'Reset123456', 403);
+  expectStatus(
+    await request('DELETE', `/api/users/${managedUser._id}`, { token: adminToken }),
+    200,
+    'ADMIN deletes managed account',
+  );
 
   expectStatus(await request('GET', '/api/equipments'), 401, 'equipment list requires auth');
   expectStatus(

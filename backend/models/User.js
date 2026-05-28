@@ -5,7 +5,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   fullName: { type: String, required: true, trim: true },
   role: { type: String, enum: ['ADMIN', 'MANAGER', 'USER', 'DIRECTOR', 'DEPUTY_DIRECTOR'], default: 'USER' },
-  department: { type: String, required: true, trim: true, index: true }
+  department: { type: String, required: true, trim: true, index: true },
+  isActive: { type: Boolean, default: true, index: true },
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

@@ -11,6 +11,7 @@ export const procurementStatusSchema = z.enum(['Chờ duyệt', 'Đã lập kế
 export const procurementPlanStatusSchema = z.enum(['Đang lập', 'Chờ duyệt', 'TGĐ phê duyệt', 'Từ chối']);
 export const maintenancePlanStatusSchema = z.enum(['Đang lập', 'Chờ duyệt', 'TGĐ phê duyệt', 'Từ chối', 'Đã thực hiện']);
 export const procurementTypeSchema = z.enum(['Định kỳ', 'Đột xuất']);
+export const userRoleSchema = z.enum(['ADMIN', 'MANAGER', 'USER', 'DIRECTOR', 'DEPUTY_DIRECTOR']);
 const targetYearSchema = z.coerce.number().int().min(2020).max(2100).optional();
 
 export const idParamSchema = z.object({ id: mongoId });
@@ -185,4 +186,26 @@ export const updateDisposalRequestSchema = z.object({
 export const loginSchema = z.object({
   username: nonEmptyString.max(100),
   password: nonEmptyString.max(200),
+});
+
+export const createUserSchema = z.object({
+  username: nonEmptyString.max(100),
+  password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự').max(200),
+  fullName: nonEmptyString.max(200),
+  role: userRoleSchema.default('USER'),
+  department: nonEmptyString.max(300),
+  isActive: z.boolean().optional(),
+});
+
+export const updateUserSchema = z.object({
+  fullName: nonEmptyString.max(200).optional(),
+  role: userRoleSchema.optional(),
+  department: nonEmptyString.max(300).optional(),
+  isActive: z.boolean().optional(),
+}).refine((data) => Object.keys(data).length > 0, {
+  message: 'Cần ít nhất một thông tin cập nhật',
+});
+
+export const resetUserPasswordSchema = z.object({
+  password: z.string().min(6, 'Mật khẩu tối thiểu 6 ký tự').max(200),
 });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Package, Wrench, CalendarCheck, Home, Bell, LogOut, ChevronDown, User, History, ClipboardList, Clock, ClipboardCheck } from 'lucide-react';
+import { Package, Wrench, CalendarCheck, Home, Bell, LogOut, ChevronDown, User, History, ClipboardList, Clock, ClipboardCheck, Users } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 import { getRoleName, isApproverRole } from '../lib/access';
@@ -126,9 +126,14 @@ export default function TopNav({ user, onLogout }: TopNavProps) {
               </NavLink>
             )}
             {user.role === 'ADMIN' && (
-              <NavLink to="/audit" className={({isActive}) => isActive ? "text-primary" : "text-foreground/60 hover:text-foreground/80 transition-colors"}>
-                <span className="flex items-center gap-1"><History className="w-4 h-4"/> Nhật ký</span>
-              </NavLink>
+              <>
+                <NavLink to="/users" className={({isActive}) => isActive ? "text-primary" : "text-foreground/60 hover:text-foreground/80 transition-colors"}>
+                  <span className="flex items-center gap-1"><Users className="w-4 h-4"/> Tài khoản</span>
+                </NavLink>
+                <NavLink to="/audit" className={({isActive}) => isActive ? "text-primary" : "text-foreground/60 hover:text-foreground/80 transition-colors"}>
+                  <span className="flex items-center gap-1"><History className="w-4 h-4"/> Nhật ký</span>
+                </NavLink>
+              </>
             )}
           </div>
         </div>

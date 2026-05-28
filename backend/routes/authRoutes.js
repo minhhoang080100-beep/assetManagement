@@ -16,6 +16,9 @@ router.post('/login', validateBody(loginSchema), async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ message: 'Sai tên đăng nhập hoặc mật khẩu' });
     }
+    if (user.isActive === false) {
+      return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.' });
+    }
 
     // So sánh mật khẩu đã hash bằng bcrypt
     const isMatch = await bcrypt.compare(password, user.password);

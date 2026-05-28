@@ -8,6 +8,17 @@ export interface AuthUser {
   department: string;
 }
 
+export interface UserAccount {
+  _id: string;
+  username: string;
+  fullName: string;
+  role: UserRole;
+  department: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface UploadResponse {
   url: string;
 }

@@ -8,6 +8,7 @@ import EquipmentDetail from './pages/EquipmentDetail';
 import RepairRequest from './pages/RepairRequest';
 import ProcurementRequest from './pages/ProcurementRequest';
 import AuditLogPage from './pages/AuditLogPage';
+import UserManagementPage from './pages/UserManagementPage';
 import MaintenancePlanPage from './pages/MaintenancePlanPage';
 import InventoryDisposalPage from './pages/InventoryDisposalPage';
 import LoginPage from './pages/LoginPage';
@@ -87,6 +88,7 @@ function App() {
             <Route path="procurement" element={<ProcurementRequest />} />
             <Route path="maintenance-plan" element={<MaintenancePlanPage />} />
             <Route path="inventory" element={<InventoryDisposalPage />} />
+            <Route path="users" element={<UserManagementPage />} />
             <Route path="audit" element={<AuditLogPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

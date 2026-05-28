@@ -15,6 +15,7 @@ import procurementPlanRoutes from './routes/procurementPlanRoutes.js';
 import maintenanceRoutes from './routes/maintenanceRoutes.js';
 import auditRoutes from './routes/auditRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import errorHandler from './middleware/errorHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -68,6 +69,7 @@ app.use('/api/procurement-plans', procurementPlanRoutes);
 app.use('/api/maintenance-plans', maintenanceRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/auditlogs', auditRoutes);
+app.use('/api/users', userRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Không tìm thấy API endpoint' });
