@@ -2,7 +2,9 @@ import mongoose from 'mongoose';
 
 const procurementItemSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true },
+    unit: { type: String, trim: true, default: 'Cái' },
     quantity: { type: Number, required: true, min: 1 },
+    specs: { type: String, trim: true },
     estimatedPrice: { type: Number, required: true, min: 0 }
 });
 
@@ -19,6 +21,9 @@ const procurementRequestSchema = new mongoose.Schema({
     reason: { type: String, required: true, trim: true },
     estimatedCost: { type: Number, required: true, min: 0 },
     items: [procurementItemSchema],
+    procurementType: { type: String, enum: ['Định kỳ', 'Đột xuất'], default: 'Đột xuất' },
+    targetYear: { type: Number, min: 2020, max: 2100, index: true },
+    submissionDeadline: { type: Date },
     status: { type: String, enum: ['Chờ duyệt', 'Đã lập kế hoạch', 'TGĐ phê duyệt', 'Từ chối', 'Đang thực hiện', 'Hoàn tất', 'Đã nhập kho'], default: 'Chờ duyệt' },
     requestedBy: { type: String, trim: true },
     requesterName: { type: String, trim: true },
@@ -34,7 +39,17 @@ const procurementRequestSchema = new mongoose.Schema({
     dueDate: { type: Date },
     approvedBy: { type: String, trim: true },
     approvedDate: { type: Date },
-    attachment: { type: String, trim: true }
+    attachment: { type: String, trim: true },
+    handover: {
+        receiverName: { type: String, trim: true },
+        supplier: { type: String, trim: true },
+        accessories: { type: String, trim: true },
+        warrantyUntil: { type: Date },
+        acceptanceNote: { type: String, trim: true },
+        handoverDate: { type: Date },
+        createdBy: { type: String, trim: true },
+        createdAt: { type: Date }
+    }
 }, { timestamps: true });
 
 export default mongoose.model('ProcurementRequest', procurementRequestSchema);

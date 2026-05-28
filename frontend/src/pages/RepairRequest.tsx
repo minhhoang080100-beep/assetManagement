@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import api from '../lib/api';
 import RepairPrintTemplate from '../components/templates/RepairPrintTemplate';
+import { isApproverRole } from '../lib/access';
 import type { AuthUser, Repair, UploadResponse } from '../lib/types';
 import { getErrorMessage } from '../lib/errors';
 
@@ -48,6 +49,7 @@ interface OutletCtx {
 
 export default function RepairRequest() {
   const { user } = useOutletContext<OutletCtx>();
+  const canApprove = isApproverRole(user.role);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Repair['status']>('all');
@@ -330,7 +332,7 @@ export default function RepairRequest() {
                                   {user.role === 'ADMIN' && item.status === 'Chờ duyệt' && (
                                     <button onClick={() => handleUpdateStatus(item, 'Đã tiếp nhận')} className="text-xs font-medium px-2.5 py-1.5 rounded-md bg-cyan-100 text-cyan-700 hover:bg-cyan-200 transition-colors">→ Tiếp nhận</button>
                                   )}
-                                  {user.role === 'DIRECTOR' && item.status === 'Đã tiếp nhận' && (
+                                  {canApprove && item.status === 'Đã tiếp nhận' && (
                                     <>
                                       <button onClick={() => handleUpdateStatus(item, 'TGĐ phê duyệt')} className="text-xs font-medium px-2.5 py-1.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">✓ Phê duyệt</button>
                                       <button onClick={() => handleUpdateStatus(item, 'Từ chối')} className="text-xs font-medium px-2.5 py-1.5 rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors">✕ Từ chối</button>

@@ -18,6 +18,7 @@ const maintenancePlanSchema = new mongoose.Schema({
   department: { type: String, trim: true, index: true },
   createdBy: { type: String, trim: true },
   items: [maintenanceItemSchema],
+  dueDate: { type: Date },
   status: { type: String, enum: ['Đang lập', 'Chờ duyệt', 'TGĐ phê duyệt', 'Từ chối', 'Đã thực hiện'], default: 'Đang lập' }
 }, { timestamps: true });
 

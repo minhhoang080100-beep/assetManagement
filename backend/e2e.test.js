@@ -107,6 +107,11 @@ function expectStatus(response, status, label) {
   return response.data;
 }
 
+function assertFutureDueDate(entity, label) {
+  assert.ok(entity.dueDate, `${label} has due date`);
+  assert.ok(new Date(entity.dueDate).getTime() > Date.now(), `${label} due date is in the future`);
+}
+
 async function login(username) {
   const response = await request('POST', '/api/auth/login', { body: { username, password } });
   const data = expectStatus(response, 200, `login ${username}`);
@@ -119,6 +124,7 @@ async function seedUsers() {
   await User.insertMany([
     { username: `${runId}_admin`, password: passwordHash, fullName: 'E2E Admin', role: 'ADMIN', department: deptA },
     { username: `${runId}_director`, password: passwordHash, fullName: 'E2E Director', role: 'DIRECTOR', department: deptA },
+    { username: `${runId}_deputy`, password: passwordHash, fullName: 'E2E Deputy Director', role: 'DEPUTY_DIRECTOR', department: deptA },
     { username: `${runId}_manager`, password: passwordHash, fullName: 'E2E Manager', role: 'MANAGER', department: deptA },
     { username: `${runId}_user`, password: passwordHash, fullName: 'E2E User', role: 'USER', department: deptA },
     { username: `${runId}_other`, password: passwordHash, fullName: 'E2E Other User', role: 'USER', department: deptB },
@@ -147,6 +153,7 @@ async function run() {
 
   const adminToken = await login(`${runId}_admin`);
   const directorToken = await login(`${runId}_director`);
+  const deputyToken = await login(`${runId}_deputy`);
   const managerToken = await login(`${runId}_manager`);
   const userToken = await login(`${runId}_user`);
   const otherToken = await login(`${runId}_other`);
@@ -221,7 +228,7 @@ async function run() {
     'MANAGER cannot accept repair request',
   );
 
-  expectStatus(
+  const acceptedRepair = expectStatus(
     await request('PUT', `/api/repairs/${repair._id}`, {
       token: adminToken,
       body: {
@@ -233,13 +240,14 @@ async function run() {
     200,
     'ADMIN accepts and assesses repair request',
   );
+  assertFutureDueDate(acceptedRepair, 'accepted repair request');
   expectStatus(
     await request('PUT', `/api/repairs/${repair._id}`, {
-      token: directorToken,
+      token: deputyToken,
       body: { status: S.directorApproved },
     }),
     200,
-    'DIRECTOR approves repair request',
+    'DEPUTY_DIRECTOR approves repair request',
   );
   expectStatus(
     await request('PUT', `/api/repairs/${repair._id}`, {
@@ -274,12 +282,17 @@ async function run() {
         reason: 'Phục vụ công việc văn phòng',
         requesterName: 'Người dùng E2E',
         estimatedCost: 15000000,
-        items: [{ name: 'Máy in laser', quantity: 2, estimatedPrice: 7500000 }],
+        procurementType: 'Định kỳ',
+        targetYear: 2026,
+        items: [{ name: 'Máy in laser', unit: 'Cái', quantity: 2, specs: 'In laser A4, kết nối mạng', estimatedPrice: 7500000 }],
       },
     }),
     201,
     'USER creates procurement request',
   );
+  assert.equal(lowCostProcurement.procurementType, 'Định kỳ', 'procurement request stores annual type');
+  assert.equal(lowCostProcurement.targetYear, 2026, 'procurement request stores target year');
+  assert.ok(lowCostProcurement.submissionDeadline, 'annual procurement request has 30/01 submission deadline');
 
   expectStatus(
     await request('PUT', `/api/procurements/${lowCostProcurement._id}`, {
@@ -294,7 +307,7 @@ async function run() {
     'low-cost procurement requires at least 3 quotations',
   );
 
-  expectStatus(
+  const plannedProcurement = expectStatus(
     await request('PUT', `/api/procurements/${lowCostProcurement._id}`, {
       token: adminToken,
       body: {
@@ -307,6 +320,7 @@ async function run() {
     200,
     'ADMIN plans low-cost procurement with 3 quotations',
   );
+  assertFutureDueDate(plannedProcurement, 'planned procurement request');
 
   const highCostProcurement = expectStatus(
     await request('POST', '/api/procurements', {
@@ -369,6 +383,8 @@ async function run() {
       body: {
         title: `Kế hoạch mua sắm E2E ${runId}`,
         period: '2026',
+        planType: 'Định kỳ',
+        targetYear: 2026,
         sourceProcurements: [lowCostProcurement._id],
         note: 'Kế hoạch kiểm thử tự động',
       },
@@ -377,6 +393,11 @@ async function run() {
     'ADMIN creates procurement plan',
   );
   assert.equal(procurementPlan.status, S.draft);
+  assert.equal(procurementPlan.planType, 'Định kỳ', 'procurement plan stores annual type');
+  assert.equal(procurementPlan.targetYear, 2026, 'procurement plan stores target year');
+  assert.ok(procurementPlan.planningDeadline, 'annual procurement plan has 01/03 planning deadline');
+  assert.equal(procurementPlan.items[0].specs, 'In laser A4, kết nối mạng', 'procurement plan carries item technical specs');
+  assert.equal(procurementPlan.items[0].unit, 'Cái', 'procurement plan carries item unit');
 
   expectStatus(
     await request('PUT', `/api/procurement-plans/${procurementPlan._id}`, {
@@ -386,7 +407,7 @@ async function run() {
     403,
     'MANAGER cannot update procurement plan status',
   );
-  expectStatus(
+  const submittedProcurementPlan = expectStatus(
     await request('PUT', `/api/procurement-plans/${procurementPlan._id}`, {
       token: adminToken,
       body: { status: S.waitingApproval },
@@ -394,6 +415,7 @@ async function run() {
     200,
     'ADMIN submits procurement plan',
   );
+  assertFutureDueDate(submittedProcurementPlan, 'submitted procurement plan');
   expectStatus(
     await request('PUT', `/api/procurement-plans/${procurementPlan._id}`, {
       token: directorToken,
@@ -424,12 +446,24 @@ async function run() {
   expectStatus(
     await request('POST', `/api/procurements/${lowCostProcurement._id}/import`, {
       token: adminToken,
+      body: {
+        receiverName: 'Đơn vị nhận E2E',
+        supplier: 'Nhà cung cấp A',
+        accessories: 'Cáp nguồn, tài liệu hướng dẫn',
+        warrantyUntil: new Date('2027-12-31T00:00:00.000Z').toISOString(),
+        acceptanceNote: 'Nghiệm thu E2E đạt yêu cầu',
+      },
     }),
     200,
     'ADMIN imports completed procurement into equipment inventory',
   );
   const importedEquipments = await Equipment.find({ name: 'Máy in laser' }).lean();
   assert.equal(importedEquipments.length, 2, 'procurement import creates one equipment per quantity');
+  assert.equal(importedEquipments[0].specs, 'In laser A4, kết nối mạng', 'procurement import carries item technical specs into equipment');
+  assert.ok(importedEquipments[0].history.some((event) => event.type === 'Nghiệm thu mới'), 'procurement import records acceptance handover history');
+  const procurementAfterImport = await ProcurementRequest.findById(lowCostProcurement._id).lean();
+  assert.equal(procurementAfterImport.status, S.imported, 'procurement is marked imported after handover');
+  assert.equal(procurementAfterImport.handover.receiverName, 'Đơn vị nhận E2E', 'procurement stores handover receiver');
 
   expectStatus(
     await request('POST', '/api/maintenance-plans', {
@@ -456,7 +490,7 @@ async function run() {
     201,
     'ADMIN creates maintenance plan',
   );
-  expectStatus(
+  const submittedMaintenancePlan = expectStatus(
     await request('PUT', `/api/maintenance-plans/${maintenancePlan._id}`, {
       token: adminToken,
       body: { status: S.waitingApproval },
@@ -464,6 +498,7 @@ async function run() {
     200,
     'ADMIN submits maintenance plan',
   );
+  assertFutureDueDate(submittedMaintenancePlan, 'submitted maintenance plan');
   expectStatus(
     await request('PUT', `/api/maintenance-plans/${maintenancePlan._id}`, {
       token: directorToken,

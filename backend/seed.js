@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Equipment from './models/Equipment.js';
+import { cleanDepartmentName } from './helpers/departments.js';
+import { seedDepartmentAccounts } from './helpers/departmentAccounts.js';
 
 dotenv.config();
 
@@ -170,6 +172,7 @@ const seedDatabase = async () => {
                 if (RAW_TO_CLEAN_MAP[bophan]) {
                     bophan = RAW_TO_CLEAN_MAP[bophan];
                 }
+                bophan = cleanDepartmentName(bophan);
             }
             
             const deptCode = getDepartmentCode(donvi, bophan);
@@ -217,6 +220,12 @@ const seedDatabase = async () => {
         await Equipment.insertMany(equipments);
         
         console.log('✅ Đã nạp thành công dữ liệu vào MongoDB!');
+        if (process.env.SEED_USER_PASSWORD) {
+            const userSeedResult = await seedDepartmentAccounts(process.env.SEED_USER_PASSWORD);
+            console.log(`✅ Đã tạo/cập nhật ${userSeedResult.accountCount} tài khoản người dùng từ danh sách phòng ban.`);
+        } else {
+            console.log('ℹ️ Bỏ qua tạo tài khoản người dùng vì chưa đặt SEED_USER_PASSWORD.');
+        }
         process.exit(0);
     } catch(err) {
         console.error('❌ Lỗi khi import:', err);

@@ -19,6 +19,9 @@ const REPAIR_TRANSITIONS = {
   DIRECTOR: {
     'Đã tiếp nhận': ['TGĐ phê duyệt', 'Từ chối'],
   },
+  DEPUTY_DIRECTOR: {
+    'Đã tiếp nhận': ['TGĐ phê duyệt', 'Từ chối'],
+  },
 };
 
 function canTransition(role, from, to) {

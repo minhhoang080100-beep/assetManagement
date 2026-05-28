@@ -17,6 +17,9 @@ const MAINTENANCE_TRANSITIONS = {
   DIRECTOR: {
     'Chờ duyệt': ['TGĐ phê duyệt', 'Từ chối'],
   },
+  DEPUTY_DIRECTOR: {
+    'Chờ duyệt': ['TGĐ phê duyệt', 'Từ chối'],
+  },
 };
 
 function canTransition(role, from, to) {
@@ -63,6 +66,10 @@ router.put('/:id', authMiddleware, validateBody(updateMaintenancePlanSchema), as
 
     const wasCompleted = plan.status === 'Đã thực hiện';
     plan.status = req.body.status;
+
+    if (req.user.role === 'ADMIN' && req.body.status === 'Chờ duyệt') {
+      plan.dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    }
 
     if (req.body.status === 'Đã thực hiện') {
       for (const item of plan.items) {

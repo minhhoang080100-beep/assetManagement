@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOutletContext } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import { isApproverRole } from '../lib/access';
 import type { AuthUser, DisposalRequest, Equipment, InventoryAudit, InventoryItem } from '../lib/types';
 import { getErrorMessage } from '../lib/errors';
 
@@ -28,6 +29,7 @@ interface CreateDisposalPayload {
 
 export default function InventoryDisposalPage() {
   const { user } = useOutletContext<OutletCtx>();
+  const canApprove = isApproverRole(user.role);
   const queryClient = useQueryClient();
   const [auditTitle, setAuditTitle] = useState(`Kiểm kê tài sản ${new Date().getFullYear()}`);
   const [auditPeriod, setAuditPeriod] = useState(`${new Date().getFullYear()}`);
@@ -185,7 +187,7 @@ export default function InventoryDisposalPage() {
                 <span className="text-xs rounded-full bg-slate-100 px-2 py-1 h-fit">{item.status}</span>
               </div>
               <div className="flex gap-2">
-                {user.role === 'DIRECTOR' && item.status === 'Chờ duyệt' && (
+                {canApprove && item.status === 'Chờ duyệt' && (
                   <>
                     <button onClick={() => updateDisposalMutation.mutate({ id: item._id, status: 'TGĐ phê duyệt' })} className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 rounded px-2 py-1"><CheckCircle2 className="w-3 h-3" /> Duyệt</button>
                     <button onClick={() => updateDisposalMutation.mutate({ id: item._id, status: 'Từ chối' })} className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-700 rounded px-2 py-1"><XCircle className="w-3 h-3" /> Từ chối</button>

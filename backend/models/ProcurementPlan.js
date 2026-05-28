@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const planItemSchema = new mongoose.Schema({
   sourceProcurementId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProcurementRequest' },
   name: { type: String, required: true, trim: true },
+  unit: { type: String, trim: true, default: 'Cái' },
   quantity: { type: Number, required: true, min: 1 },
   specs: { type: String, trim: true },
   department: { type: String, required: true, trim: true },
@@ -12,6 +13,9 @@ const planItemSchema = new mongoose.Schema({
 const procurementPlanSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
   period: { type: String, required: true, trim: true },
+  planType: { type: String, enum: ['Định kỳ', 'Đột xuất'], default: 'Đột xuất' },
+  targetYear: { type: Number, min: 2020, max: 2100, index: true },
+  planningDeadline: { type: Date },
   createdBy: { type: String, trim: true },
   sourceProcurements: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ProcurementRequest' }],
   items: [planItemSchema],

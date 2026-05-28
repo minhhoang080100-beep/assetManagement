@@ -5,6 +5,7 @@ import { authMiddleware, authorizeRoles } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { createProcurementPlanSchema, updateProcurementPlanSchema } from '../helpers/schemas.js';
 import logAudit from '../helpers/logAudit.js';
+import { getAnnualProcurementDeadlines, isAnnualProcurement, normalizeProcurementYear } from '../helpers/procurementTimeline.js';
 
 const router = Router();
 
@@ -15,13 +16,16 @@ const PLAN_TRANSITIONS = {
   DIRECTOR: {
     'Chờ duyệt': ['TGĐ phê duyệt', 'Từ chối'],
   },
+  DEPUTY_DIRECTOR: {
+    'Chờ duyệt': ['TGĐ phê duyệt', 'Từ chối'],
+  },
 };
 
 function canTransition(role, from, to) {
   return PLAN_TRANSITIONS[role]?.[from]?.includes(to) || false;
 }
 
-router.get('/', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR'), async (req, res, next) => {
+router.get('/', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR', 'DEPUTY_DIRECTOR'), async (req, res, next) => {
   try {
     const plans = await ProcurementPlan.find().sort({ createdAt: -1 });
     res.json(plans);
@@ -41,11 +45,16 @@ router.post('/', authMiddleware, authorizeRoles('ADMIN'), validateBody(createPro
       return res.status(400).json({ message: 'Chỉ được tổng hợp các phiếu đã được HCTH thẩm định và lập kế hoạch.' });
     }
 
+    const requestedPlanType = req.body.planType || (requests.every((request) => request.procurementType === 'Định kỳ') ? 'Định kỳ' : 'Đột xuất');
+    const requestedYear = req.body.targetYear || requests.find((request) => request.targetYear)?.targetYear;
+    const targetYear = normalizeProcurementYear(requestedYear);
+    const annualDeadlines = getAnnualProcurementDeadlines(targetYear);
     const items = requests.flatMap((request) => request.items.map((item) => ({
       sourceProcurementId: request._id,
       name: item.name,
+      unit: item.unit || 'Cái',
       quantity: item.quantity,
-      specs: '',
+      specs: item.specs || '',
       department: request.department,
       estimatedPrice: item.estimatedPrice,
     })));
@@ -54,12 +63,14 @@ router.post('/', authMiddleware, authorizeRoles('ADMIN'), validateBody(createPro
     const plan = await ProcurementPlan.create({
       title: req.body.title,
       period: req.body.period,
+      planType: requestedPlanType,
+      targetYear,
+      planningDeadline: isAnnualProcurement(requestedPlanType) ? annualDeadlines.planDeadline : undefined,
       sourceProcurements: req.body.sourceProcurements,
       items,
       totalEstimatedCost,
       note: req.body.note,
       createdBy: req.user.username,
-      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
       status: 'Đang lập',
     });
 
@@ -70,7 +81,7 @@ router.post('/', authMiddleware, authorizeRoles('ADMIN'), validateBody(createPro
   }
 });
 
-router.put('/:id', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR'), validateBody(updateProcurementPlanSchema), async (req, res, next) => {
+router.put('/:id', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR', 'DEPUTY_DIRECTOR'), validateBody(updateProcurementPlanSchema), async (req, res, next) => {
   try {
     const plan = await ProcurementPlan.findById(req.params.id);
     if (!plan) return res.status(404).json({ message: 'Không tìm thấy kế hoạch mua sắm' });
@@ -79,7 +90,10 @@ router.put('/:id', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR'), validate
     }
 
     plan.status = req.body.status;
-    if (req.user.role === 'DIRECTOR' && req.body.status === 'TGĐ phê duyệt') {
+    if (req.user.role === 'ADMIN' && req.body.status === 'Chờ duyệt') {
+      plan.dueDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    }
+    if (['DIRECTOR', 'DEPUTY_DIRECTOR'].includes(req.user.role) && req.body.status === 'TGĐ phê duyệt') {
       plan.approvedBy = req.user.username;
       plan.approvedDate = new Date();
       await ProcurementRequest.updateMany(
@@ -87,7 +101,7 @@ router.put('/:id', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR'), validate
         { status: 'TGĐ phê duyệt', approvedBy: req.user.username, approvedDate: new Date() }
       );
     }
-    if (req.user.role === 'DIRECTOR' && req.body.status === 'Từ chối') {
+    if (['DIRECTOR', 'DEPUTY_DIRECTOR'].includes(req.user.role) && req.body.status === 'Từ chối') {
       await ProcurementRequest.updateMany(
         { _id: { $in: plan.sourceProcurements }, status: 'Đã lập kế hoạch' },
         { status: 'Từ chối', approvedBy: req.user.username, approvedDate: new Date() }

@@ -67,13 +67,13 @@ async function runTests() {
   const noToken = await fetch(`${BASE}/api/equipments`);
   log('1.4 API không có token → 401', noToken.status === 401, `Status: ${noToken.status}`);
 
-  // Test 1.5: Login MANAGER
-  const loginManager = await apiCall('POST', '/api/auth/login', { username: 'ketoan_cl', password: TEST_USER_PASSWORD });
-  log('1.5 Login MANAGER', loginManager.ok && loginManager.data?.user?.role === 'MANAGER', `Role: ${loginManager.data?.user?.role}`);
+  // Test 1.5: Login tài khoản dùng chung phòng ban
+  const loginDeptCl = await apiCall('POST', '/api/auth/login', { username: 'cl_kt', password: TEST_USER_PASSWORD });
+  log('1.5 Login tài khoản phòng ban Cửa Lò', loginDeptCl.ok && loginDeptCl.data?.user?.role === 'USER', `Role: ${loginDeptCl.data?.user?.role}`);
 
-  // Test 1.6: Login USER
-  const loginUser = await apiCall('POST', '/api/auth/login', { username: 'kythuat_bt', password: TEST_USER_PASSWORD });
-  log('1.6 Login USER', loginUser.ok && loginUser.data?.user?.role === 'USER', `Role: ${loginUser.data?.user?.role}`);
+  // Test 1.6: Login tài khoản phòng ban Bến Thủy
+  const loginDeptBt = await apiCall('POST', '/api/auth/login', { username: 'bt_kth', password: TEST_USER_PASSWORD });
+  log('1.6 Login tài khoản phòng ban Bến Thủy', loginDeptBt.ok && loginDeptBt.data?.user?.role === 'USER', `Role: ${loginDeptBt.data?.user?.role}`);
 
   // ===================================
   // MODULE 2: QUẢN LÝ THIẾT BỊ
@@ -194,9 +194,11 @@ async function runTests() {
     department: 'Kế toán tổng hợp',
     reason: 'Thay thế máy tính cũ đã hết hạn sử dụng',
     estimatedCost: 45000000,
+    procurementType: 'Định kỳ',
+    targetYear: new Date().getFullYear(),
     items: [
-      { name: 'Laptop Dell Vostro 3520', quantity: 2, estimatedPrice: 15000000 },
-      { name: 'Laptop HP 245 G9', quantity: 1, estimatedPrice: 15000000 }
+      { name: 'Laptop Dell Vostro 3520', unit: 'Cái', quantity: 2, specs: 'Intel i5, RAM 16GB, SSD 512GB', estimatedPrice: 15000000 },
+      { name: 'Laptop HP 245 G9', unit: 'Cái', quantity: 1, specs: 'Ryzen 5, RAM 16GB, SSD 512GB', estimatedPrice: 15000000 }
     ],
     status: 'Chờ duyệt'
   });
@@ -235,7 +237,13 @@ async function runTests() {
   // Test 4.5: Nhập kho (auto-create equipments)
   if (testProcId) {
     const eqCountBefore = (await apiCall('GET', '/api/equipments')).data?.length || 0;
-    const importResult = await apiCall('POST', `/api/procurements/${testProcId}/import`);
+    const importResult = await apiCall('POST', `/api/procurements/${testProcId}/import`, {
+      receiverName: 'Phòng Kế toán tổng hợp',
+      supplier: 'NCC A',
+      accessories: 'Sạc, tài liệu hướng dẫn',
+      warrantyUntil: new Date('2027-12-31T00:00:00.000Z').toISOString(),
+      acceptanceNote: 'Đã nghiệm thu, bàn giao theo BM.HCTH.05.03.'
+    });
     log('4.5 Nhập kho', importResult.ok, `Message: ${importResult.data?.message}`);
     
     const eqCountAfter = (await apiCall('GET', '/api/equipments')).data?.length || 0;

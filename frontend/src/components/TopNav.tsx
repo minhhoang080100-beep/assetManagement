@@ -3,7 +3,10 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Package, Wrench, CalendarCheck, Home, Bell, LogOut, ChevronDown, User, History, ClipboardList, Clock, ClipboardCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
-import type { AuthUser, MaintenancePlan, NotificationItem, Procurement, Repair } from '../lib/types';
+import { getRoleName, isApproverRole } from '../lib/access';
+import { countOverdue } from '../lib/sla';
+import { getAnnualProcurementDeadlines, isAnnualProcurement } from '../lib/procurementTimeline';
+import type { AuthUser, MaintenancePlan, NotificationItem, Procurement, ProcurementPlan, Repair } from '../lib/types';
 
 interface TopNavProps {
   user: AuthUser;
@@ -19,16 +22,33 @@ export default function TopNav({ user, onLogout }: TopNavProps) {
     queryKey: ['notifications', user.role],
     queryFn: async () => {
       try {
-        const [repairs, procs, plans] = await Promise.all([
+        const [repairs, procs, plans, procurementPlans] = await Promise.all([
           api.get<Repair[]>('/api/repairs').catch(() => [] as Repair[]),
           api.get<Procurement[]>('/api/procurements').catch(() => [] as Procurement[]),
-          api.get<MaintenancePlan[]>('/api/maintenance-plans').catch(() => [] as MaintenancePlan[])
+          api.get<MaintenancePlan[]>('/api/maintenance-plans').catch(() => [] as MaintenancePlan[]),
+          isApproverRole(user.role) || user.role === 'ADMIN'
+            ? api.get<ProcurementPlan[]>('/api/procurement-plans').catch(() => [] as ProcurementPlan[])
+            : Promise.resolve([] as ProcurementPlan[]),
         ]);
         
         const notifs: NotificationItem[] = [];
         let idCounter = 1;
+        const currentYear = new Date().getFullYear();
+        const annualDeadlines = getAnnualProcurementDeadlines(currentYear);
+        const annualRequests = procs.filter(p => isAnnualProcurement(p.procurementType) && (p.targetYear || currentYear) === currentYear);
+        const annualPlans = procurementPlans.filter(p => isAnnualProcurement(p.planType) && (p.targetYear || currentYear) === currentYear);
         
         if (user.role === 'ADMIN') {
+          const now = Date.now();
+          const annualPending = annualRequests.filter(p => p.status === 'Chờ duyệt').length;
+          if (annualPending > 0 && now > annualDeadlines.requestDeadline.getTime()) {
+            notifs.push({ id: idCounter++, title: 'Quá hạn', desc: `${annualPending} đề nghị mua sắm định kỳ đã qua hạn 30/01 cần HCTH xử lý.`, link: '/procurement' });
+          }
+          const annualPlanApproved = annualPlans.some(p => p.status === 'TGĐ phê duyệt');
+          if (annualRequests.length > 0 && !annualPlanApproved && now > annualDeadlines.planDeadline.getTime()) {
+            notifs.push({ id: idCounter++, title: 'Quá hạn', desc: `Kế hoạch mua sắm năm ${currentYear} chưa được duyệt sau hạn 01/03.`, link: '/procurement' });
+          }
+
           const rCount = repairs.filter(r => r.status === 'Chờ duyệt').length;
           if (rCount > 0) notifs.push({ id: idCounter++, title: 'Sửa chữa', desc: `Có ${rCount} yêu cầu báo hỏng cần tiếp nhận.`, link: '/maintenance' });
           
@@ -37,12 +57,27 @@ export default function TopNav({ user, onLogout }: TopNavProps) {
           
           const pCount2 = procs.filter(p => p.status === 'TGĐ phê duyệt').length;
           if (pCount2 > 0) notifs.push({ id: idCounter++, title: 'Mua sắm', desc: `Có ${pCount2} kế hoạch đã duyệt, cần tiến hành mua sắm.`, link: '/procurement' });
-        } else if (user.role === 'DIRECTOR') {
+        } else if (isApproverRole(user.role)) {
+          const overdueRepairs = countOverdue(repairs, 'Đã tiếp nhận');
+          if (overdueRepairs > 0) notifs.push({ id: idCounter++, title: 'Quá hạn', desc: `${overdueRepairs} phiếu sửa chữa quá hạn phê duyệt theo KPI 02 ngày.`, link: '/maintenance' });
+
+          const overdueProcs = countOverdue(procs, 'Đã lập kế hoạch');
+          if (overdueProcs > 0) notifs.push({ id: idCounter++, title: 'Quá hạn', desc: `${overdueProcs} đề nghị mua sắm quá hạn phê duyệt theo KPI 03 ngày.`, link: '/procurement' });
+
+          const overdueProcPlans = countOverdue(procurementPlans, 'Chờ duyệt');
+          if (overdueProcPlans > 0) notifs.push({ id: idCounter++, title: 'Quá hạn', desc: `${overdueProcPlans} kế hoạch mua sắm BM.05.02 quá hạn phê duyệt.`, link: '/procurement' });
+
+          const overdueMaintenance = countOverdue(plans, 'Chờ duyệt');
+          if (overdueMaintenance > 0) notifs.push({ id: idCounter++, title: 'Quá hạn', desc: `${overdueMaintenance} kế hoạch bảo dưỡng quá hạn phê duyệt.`, link: '/maintenance-plan' });
+
           const rCount = repairs.filter(r => r.status === 'Đã tiếp nhận').length;
           if (rCount > 0) notifs.push({ id: idCounter++, title: 'Phê duyệt', desc: `Có ${rCount} phiếu sửa chữa đang chờ phê duyệt.`, link: '/maintenance' });
           
           const pCount = procs.filter(p => p.status === 'Đã lập kế hoạch').length;
-          if (pCount > 0) notifs.push({ id: idCounter++, title: 'Phê duyệt', desc: `Có ${pCount} kế hoạch mua sắm đang chờ phê duyệt.`, link: '/procurement' });
+          if (pCount > 0) notifs.push({ id: idCounter++, title: 'Phê duyệt', desc: `Có ${pCount} đề nghị mua sắm đang chờ phê duyệt.`, link: '/procurement' });
+
+          const planCount = procurementPlans.filter(p => p.status === 'Chờ duyệt').length;
+          if (planCount > 0) notifs.push({ id: idCounter++, title: 'Phê duyệt', desc: `Có ${planCount} kế hoạch mua sắm BM.05.02 đang chờ phê duyệt.`, link: '/procurement' });
           
           const mCount = plans.filter(p => p.status === 'Chờ duyệt').length;
           if (mCount > 0) notifs.push({ id: idCounter++, title: 'Phê duyệt', desc: `Có ${mCount} kế hoạch bảo dưỡng đang chờ phê duyệt.`, link: '/maintenance-plan' });
@@ -54,16 +89,6 @@ export default function TopNav({ user, onLogout }: TopNavProps) {
     },
     refetchInterval: 30000 // Refresh every 30s
   });
-
-  const getRoleName = (role: string) => {
-    switch (role) {
-      case 'ADMIN': return 'Quản trị viên';
-      case 'MANAGER': return 'Quản lý';
-      case 'USER': return 'Nhân viên';
-      case 'DIRECTOR': return 'Tổng Giám Đốc';
-      default: return role;
-    }
-  };
 
   const getInitials = (name: string) => {
     return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
@@ -95,7 +120,7 @@ export default function TopNav({ user, onLogout }: TopNavProps) {
             <NavLink to="/maintenance-plan" className={({isActive}) => isActive ? "text-primary" : "text-foreground/60 hover:text-foreground/80 transition-colors"}>
               <span className="flex items-center gap-1"><ClipboardList className="w-4 h-4"/> Bảo dưỡng</span>
             </NavLink>
-            {(user.role === 'ADMIN' || user.role === 'DIRECTOR') && (
+            {(user.role === 'ADMIN' || isApproverRole(user.role)) && (
               <NavLink to="/inventory" className={({isActive}) => isActive ? "text-primary" : "text-foreground/60 hover:text-foreground/80 transition-colors"}>
                 <span className="flex items-center gap-1"><ClipboardCheck className="w-4 h-4"/> Kiểm kê</span>
               </NavLink>

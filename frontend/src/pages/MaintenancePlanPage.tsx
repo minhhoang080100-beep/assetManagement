@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import api from '../lib/api';
+import { isApproverRole } from '../lib/access';
 import type { AuthUser, MaintenanceItem, MaintenancePlan } from '../lib/types';
 
 const maintFormSchema = z.object({
@@ -29,6 +30,7 @@ interface CreateMaintenancePlanPayload {
 
 export default function MaintenancePlanPage() {
   const { user } = useOutletContext<OutletCtx>();
+  const canApprove = isApproverRole(user.role);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const printRef = React.useRef(null);
@@ -187,7 +189,7 @@ export default function MaintenancePlanPage() {
               {user.role === 'ADMIN' && plan.status === 'Đang lập' && (
                 <button onClick={() => updateStatusMutation.mutate({ id: plan._id, status: 'Chờ duyệt' })} className="text-sm font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200 px-3 py-1.5 rounded-md transition-colors">Trình duyệt</button>
               )}
-              {user.role === 'DIRECTOR' && plan.status === 'Chờ duyệt' && (
+              {canApprove && plan.status === 'Chờ duyệt' && (
                 <>
                   <button onClick={() => updateStatusMutation.mutate({ id: plan._id, status: 'TGĐ phê duyệt' })} className="text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1.5 rounded-md transition-colors">✓ Phê duyệt</button>
                   <button onClick={() => updateStatusMutation.mutate({ id: plan._id, status: 'Từ chối' })} className="text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-md transition-colors">✕ Từ chối</button>

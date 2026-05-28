@@ -1,5 +1,11 @@
+export const APPROVER_ROLES = ['DIRECTOR', 'DEPUTY_DIRECTOR'];
+
+export function isApprover(user) {
+  return APPROVER_ROLES.includes(user?.role);
+}
+
 export function isPrivileged(user) {
-  return user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
+  return user?.role === 'ADMIN' || isApprover(user);
 }
 
 export function departmentScopedQuery(user) {

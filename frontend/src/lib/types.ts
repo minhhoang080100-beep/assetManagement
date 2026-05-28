@@ -1,4 +1,5 @@
-export type UserRole = 'ADMIN' | 'MANAGER' | 'USER' | 'DIRECTOR';
+export type UserRole = 'ADMIN' | 'MANAGER' | 'USER' | 'DIRECTOR' | 'DEPUTY_DIRECTOR';
+export type ProcurementType = 'Định kỳ' | 'Đột xuất';
 
 export interface AuthUser {
   username: string;
@@ -62,8 +63,21 @@ export interface Repair {
 
 export interface ProcurementItem {
   name: string;
+  unit?: string;
   quantity: number;
+  specs?: string;
   estimatedPrice: number;
+}
+
+export interface ProcurementHandover {
+  receiverName?: string;
+  supplier?: string;
+  accessories?: string;
+  warrantyUntil?: string;
+  acceptanceNote?: string;
+  handoverDate?: string;
+  createdBy?: string;
+  createdAt?: string;
 }
 
 export interface Procurement {
@@ -73,6 +87,9 @@ export interface Procurement {
   reason: string;
   estimatedCost: number;
   items: ProcurementItem[];
+  procurementType?: ProcurementType;
+  targetYear?: number;
+  submissionDeadline?: string;
   status: 'Chờ duyệt' | 'Đã lập kế hoạch' | 'TGĐ phê duyệt' | 'Từ chối' | 'Đang thực hiện' | 'Hoàn tất' | 'Đã nhập kho';
   requestedDate: string;
   requestedBy?: string;
@@ -89,6 +106,7 @@ export interface Procurement {
   approvedBy?: string;
   approvedDate?: string;
   attachment?: string;
+  handover?: ProcurementHandover;
 }
 
 export interface Quotation {
@@ -102,11 +120,15 @@ export interface ProcurementPlan {
   _id: string;
   title: string;
   period: string;
+  planType?: ProcurementType;
+  targetYear?: number;
+  planningDeadline?: string;
   createdBy?: string;
   sourceProcurements: string[];
   items: Array<{
     sourceProcurementId?: string;
     name: string;
+    unit?: string;
     quantity: number;
     specs?: string;
     department: string;
@@ -140,6 +162,7 @@ export interface MaintenancePlan {
   department: string;
   createdBy: string;
   items: MaintenanceItem[];
+  dueDate?: string;
   status: 'Đang lập' | 'Chờ duyệt' | 'TGĐ phê duyệt' | 'Từ chối' | 'Đã thực hiện';
   createdAt: string;
 }

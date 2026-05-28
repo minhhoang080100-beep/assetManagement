@@ -5,7 +5,7 @@ import Equipment from '../models/Equipment.js';
 import { authMiddleware, authorizeRoles } from '../middleware/auth.js';
 import { validateBody } from '../middleware/validate.js';
 import { createDisposalRequestSchema, createInventoryAuditSchema, updateDisposalRequestSchema, updateInventoryAuditSchema } from '../helpers/schemas.js';
-import { departmentScopedQuery } from '../helpers/accessControl.js';
+import { departmentScopedQuery, isApprover } from '../helpers/accessControl.js';
 import logAudit from '../helpers/logAudit.js';
 
 const router = Router();
@@ -92,15 +92,15 @@ router.post('/disposals', authMiddleware, authorizeRoles('ADMIN'), validateBody(
   }
 });
 
-router.put('/disposals/:id', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR'), validateBody(updateDisposalRequestSchema), async (req, res, next) => {
+router.put('/disposals/:id', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR', 'DEPUTY_DIRECTOR'), validateBody(updateDisposalRequestSchema), async (req, res, next) => {
   try {
     const disposal = await DisposalRequest.findById(req.params.id);
     if (!disposal) return res.status(404).json({ message: 'Không tìm thấy hồ sơ thanh lý' });
-    if (req.user.role === 'DIRECTOR' && disposal.status !== 'Chờ duyệt') {
+    if (isApprover(req.user) && disposal.status !== 'Chờ duyệt') {
       return res.status(400).json({ message: 'Hồ sơ này không còn ở trạng thái chờ duyệt.' });
     }
-    if (req.user.role === 'DIRECTOR' && !['TGĐ phê duyệt', 'Từ chối'].includes(req.body.status)) {
-      return res.status(403).json({ message: 'TGĐ chỉ được phê duyệt hoặc từ chối.' });
+    if (isApprover(req.user) && !['TGĐ phê duyệt', 'Từ chối'].includes(req.body.status)) {
+      return res.status(403).json({ message: 'Lãnh đạo chỉ được phê duyệt hoặc từ chối.' });
     }
     if (req.user.role === 'ADMIN' && req.body.status !== 'Đã thanh lý') {
       return res.status(403).json({ message: 'HCTH chỉ được xác nhận đã thanh lý.' });
@@ -111,7 +111,7 @@ router.put('/disposals/:id', authMiddleware, authorizeRoles('ADMIN', 'DIRECTOR')
 
     disposal.status = req.body.status;
     disposal.note = req.body.note || disposal.note;
-    if (req.user.role === 'DIRECTOR') {
+    if (isApprover(req.user)) {
       disposal.approvedBy = req.user.username;
       disposal.approvedDate = new Date();
     }

@@ -10,6 +10,8 @@ export const repairStatusSchema = z.enum(['Chờ duyệt', 'Đã tiếp nhận',
 export const procurementStatusSchema = z.enum(['Chờ duyệt', 'Đã lập kế hoạch', 'TGĐ phê duyệt', 'Từ chối', 'Đang thực hiện', 'Hoàn tất', 'Đã nhập kho']);
 export const procurementPlanStatusSchema = z.enum(['Đang lập', 'Chờ duyệt', 'TGĐ phê duyệt', 'Từ chối']);
 export const maintenancePlanStatusSchema = z.enum(['Đang lập', 'Chờ duyệt', 'TGĐ phê duyệt', 'Từ chối', 'Đã thực hiện']);
+export const procurementTypeSchema = z.enum(['Định kỳ', 'Đột xuất']);
+const targetYearSchema = z.coerce.number().int().min(2020).max(2100).optional();
 
 export const idParamSchema = z.object({ id: mongoId });
 
@@ -69,7 +71,9 @@ export const updateRepairSchema = z.object({
 
 const procurementItemSchema = z.object({
   name: nonEmptyString.max(500),
+  unit: optionalString.default('Cái'),
   quantity: z.coerce.number().int().min(1).max(1000),
+  specs: optionalString,
   estimatedPrice: z.coerce.number().min(0),
 });
 
@@ -86,6 +90,8 @@ export const createProcurementSchema = z.object({
   requesterName: nonEmptyString.max(200),
   estimatedCost: z.coerce.number().min(0),
   items: z.array(procurementItemSchema).min(1).max(200),
+  procurementType: procurementTypeSchema.default('Đột xuất'),
+  targetYear: targetYearSchema,
   attachment: optionalString,
 });
 
@@ -98,9 +104,20 @@ export const updateProcurementSchema = z.object({
   contractAttachment: optionalString,
 });
 
+export const importProcurementSchema = z.object({
+  receiverName: optionalString,
+  supplier: optionalString,
+  accessories: optionalString,
+  warrantyUntil: z.string().datetime().optional().or(z.literal('')),
+  acceptanceNote: optionalString,
+  handoverDate: z.string().datetime().optional().or(z.literal('')),
+}).default({});
+
 export const createProcurementPlanSchema = z.object({
   title: nonEmptyString.max(500),
   period: nonEmptyString.max(100),
+  planType: procurementTypeSchema.default('Đột xuất'),
+  targetYear: targetYearSchema,
   sourceProcurements: z.array(mongoId).min(1).max(100),
   note: optionalString,
 });
